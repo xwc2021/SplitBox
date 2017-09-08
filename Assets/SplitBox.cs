@@ -144,13 +144,18 @@ public class SplitBox : MonoBehaviour {
         right.backToOrigin();
     }
 
+    float totalTime;
+    float startTime;
     void goTarget()
     {
+        totalTime = Vector3.Distance(transform.position, target) / speed;
+        startTime = Time.time;
         state = SplitBoxState.split_move;
     }
 
     void backToOrigin()
     {
+        startTime = Time.time;
         state = SplitBoxState.merge_move;
     }
 
@@ -185,9 +190,10 @@ public class SplitBox : MonoBehaviour {
 
     void doSplitMove()
     {
-        transform.position = Vector3.Lerp(transform.position, target, speed * Time.deltaTime);
+        float t = (Time.time-startTime) / totalTime;
+        transform.position = Vector3.Lerp(transform.position, target, Mathf.SmoothStep(0,1,t));
 
-        if ((transform.position - target).magnitude < Epsilon)
+        if (t>=1)
         {
             transform.position = target;
             state = SplitBoxState.split_move_end;
@@ -197,9 +203,10 @@ public class SplitBox : MonoBehaviour {
 
     void doMergeMove()
     {
-        transform.position = Vector3.Lerp(transform.position, origin, speed * Time.deltaTime);
+        float t = (Time.time - startTime) / totalTime;
+        transform.position = Vector3.Lerp(transform.position, origin, Mathf.SmoothStep(0, 1, t));
 
-        if ((transform.position - origin).magnitude < Epsilon)
+        if (t>=1)
         {
             transform.position = origin;
             parent.SendMessage("call_parent_merge_ok");
