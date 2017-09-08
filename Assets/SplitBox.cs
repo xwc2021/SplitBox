@@ -14,7 +14,7 @@ public class SplitBox : MonoBehaviour {
     public bool can_click = false;
     bool is_click = false;
     MeshRenderer render;
-    BoxCollider collider;
+    BoxCollider mCollider;
 
     public void reset_is_click()
     {
@@ -24,9 +24,9 @@ public class SplitBox : MonoBehaviour {
     // Use this for initialization
     void Start () {
         render = GetComponent<MeshRenderer>();
-        collider = GetComponent<BoxCollider>();
+        mCollider = GetComponent<BoxCollider>();
 
-        collider.enabled = can_click;
+        mCollider.enabled = can_click;
     }
 
     SplitBox left  = null;
@@ -41,16 +41,18 @@ public class SplitBox : MonoBehaviour {
     public float speed =10.0f;
 
     public void do_split(List<SplitBox> leaf_list)
-    { 
-        //direction = Dir.Z;
-        direction = (Dir)Mathf.Floor(Random.value * 3.0f);
-        //split_factor = 0.2f;
-        split_factor = 0.1f*(Mathf.Floor(Random.value * 9.0f)+1.0f);
+    {
+        int dir = Random.Range(0, 3);
+        direction = (Dir)dir;
+
+        split_factor = Mathf.Max(0.1f,Random.value);
         float remaining = 1.0f - split_factor;
-        //print("split_factor=" + split_factor);
 
         Vector3 position_left =Vector3.zero;
         Vector3 position_right = Vector3.zero;
+
+        //when split_factor=0.2
+        //__|________
         if (direction == Dir.X)
         {
             float len = transform.localScale.x;
@@ -157,10 +159,9 @@ public class SplitBox : MonoBehaviour {
     {
         if (!is_click)
         {
-            manager.SendMessage("start_separate", this);
+            manager.SendMessage("start_split", this);
             is_click = true;
         }
-
     }
 
     void call_parent_separate_ok()
@@ -170,51 +171,56 @@ public class SplitBox : MonoBehaviour {
             manager.SendMessage("separate_ok");
     }
 
-    void call_parent_merger_ok()
+    void call_parent_merge_ok()
     {
         ++receive_count;
         if (receive_count == max_receive_count)
         {
             render.enabled = true;
-            manager.SendMessage("merger_ok");
+            manager.SendMessage("merge_ok");
+        }
+    }
+
+    float Epsilon = 0.01f;
+
+    void doSplitMove()
+    {
+        transform.position = Vector3.Lerp(transform.position, target, speed * Time.deltaTime);
+
+        if ((transform.position - target).magnitude < Epsilon)
+        {
+            transform.position = target;
+            state = SplitBoxState.split_move_end;
+            parent.SendMessage("call_parent_separate_ok");
+        }
+    }
+
+    void doMergeMove()
+    {
+        transform.position = Vector3.Lerp(transform.position, origin, speed * Time.deltaTime);
+
+        if ((transform.position - origin).magnitude < Epsilon)
+        {
+            transform.position = origin;
+            parent.SendMessage("call_parent_merge_ok");
+            state = SplitBoxState.merge_move_end;
         }
     }
 
     // Update is called once per frame
     void Update () {
 
-
-        float Epsilon = 0.01f;
-        if (state == SplitBoxState.split_move)
+        switch (state)
         {
-            transform.position = Vector3.Lerp(transform.position, target, speed*Time.deltaTime);
-
-            if ((transform.position - target).magnitude < Epsilon)
-            {
-                transform.position = target;
-                state = SplitBoxState.split_move_end;
-                parent.SendMessage("call_parent_separate_ok");
-            }
-        }
-        else if (state == SplitBoxState.split_move_end)
-        {
-
-
-        }
-        else if (state == SplitBoxState.merge_move)
-        {
-            transform.position = Vector3.Lerp(transform.position, origin, speed*Time.deltaTime);
-
-            if ((transform.position - origin).magnitude < Epsilon)
-            {
-                transform.position = origin;
-                parent.SendMessage("call_parent_merger_ok");
-                state = SplitBoxState.merge_move_end;
-            }
-        }
-        else if (state == SplitBoxState.merge_move_end)
-        {
-            Destroy(this.gameObject);
+            case SplitBoxState.split_move:
+                doSplitMove();
+                break;
+            case SplitBoxState.merge_move:
+                doMergeMove();
+                break;
+            case SplitBoxState.merge_move_end:
+                Destroy(this.gameObject);
+                break;
         }
     }
 }
